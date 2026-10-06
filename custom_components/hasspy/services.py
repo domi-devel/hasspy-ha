@@ -37,6 +37,7 @@ from .const import (
     SERVICE_HEARTBEAT,
     SERVICE_LIST_BRIDGES,
     SERVICE_LIST_ENTITIES,
+    SERVICE_LOG,
     SERVICE_PIN,
     SERVICE_REGISTER_BRIDGE,
     SERVICE_RELEASE_SESSION,
@@ -50,6 +51,9 @@ from .lifecycle import note_bridge_seen
 from .store import EntityRecord, build_unique_id
 
 _LOGGER = logging.getLogger(__name__)
+
+# How many log lines to keep per bridge (newest first).
+MAX_LOG_ENTRIES = 100
 
 
 def _runtime(hass: HomeAssistant) -> HasspyRuntime:
@@ -177,6 +181,18 @@ SESSION_SCHEMA = vol.Schema(
     }
 )
 
+LOG_SCHEMA = vol.Schema(
+    {
+        vol.Required("bridge"): str,
+        vol.Required("message"): vol.All(str, vol.Length(max=2000)),
+        vol.Optional("automation"): vol.Any(str, None),
+        vol.Optional("level", default="info"): vol.In(
+            ("debug", "info", "warning", "error")
+        ),
+        vol.Optional("logbook", default=True): bool,
+    }
+)
+
 
 # --- handlers ---------------------------------------------------------------
 
@@ -234,6 +250,55 @@ def async_setup_services(hass: HomeAssistant) -> None:
             delete_entities=bool(call.data.get("delete_entities")),
         )
         runtime.store.async_schedule_save()
+
+    async def handle_log(call: ServiceCall) -> None:
+        """Record a log line from hasspy automations.
+
+        Stored in a per-bridge ring buffer (readable as sensor.<bridge>_last_log
+        and its `log` attribute), mirrored to the HA system log at the matching
+        level, and optionally written to the logbook so it shows in the UI on a
+        timeline.
+        """
+        runtime = with_runtime(call)
+        bridge = call.data["bridge"]
+        record = runtime.store.get_bridge(bridge)
+        if record is None:
+            # Self-heal like heartbeat: a log before register still lands.
+            record = runtime.store.ensure_bridge(bridge)
+
+        entry = {
+            "time": time.time(),
+            "automation": call.data.get("automation"),
+            "level": call.data["level"],
+            "message": call.data["message"],
+        }
+        record.log.insert(0, entry)
+        del record.log[MAX_LOG_ENTRIES:]
+
+        level = call.data["level"]
+        text = f"[{bridge}]"
+        if entry["automation"]:
+            text += f" [{entry['automation']}]"
+        text += f" {entry['message']}"
+        {"debug": _LOGGER.debug, "info": _LOGGER.info,
+         "warning": _LOGGER.warning, "error": _LOGGER.error}[level](text)
+
+        if call.data.get("logbook") and hass.services.has_service("logbook", "log"):
+            hass.async_create_task(
+                hass.services.async_call(
+                    "logbook",
+                    "log",
+                    {
+                        "name": bridge,
+                        "message": call.data["message"],
+                        "entity_id": f"sensor.{bridge}_last_log",
+                    },
+                    blocking=False,
+                )
+            )
+
+        runtime.store.async_schedule_save()
+        runtime.async_sync_bridge(bridge)
 
     async def handle_create_entity(call: ServiceCall) -> ServiceResponse:
         runtime = with_runtime(call)
@@ -468,6 +533,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
     hass.services.async_register(
         DOMAIN, SERVICE_HEARTBEAT, handle_heartbeat, HEARTBEAT_SCHEMA
     )
+    hass.services.async_register(DOMAIN, SERVICE_LOG, handle_log, LOG_SCHEMA)
     hass.services.async_register(
         DOMAIN, SERVICE_REMOVE_BRIDGE, handle_remove_bridge, REMOVE_BRIDGE_SCHEMA
     )

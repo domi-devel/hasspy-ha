@@ -92,6 +92,7 @@ def _async_remove_services(hass: HomeAssistant) -> None:
         "register_bridge",
         "remove_bridge",
         "heartbeat",
+        "log",
         "create_entity",
         "set_entity_state",
         "delete_entity",

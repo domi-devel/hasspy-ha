@@ -132,6 +132,10 @@ class BridgeRecord:
     #    "last_event": 1730000000.0, "errors": 0}
     automations: list[dict[str, Any]] = field(default_factory=list)
 
+    # The most recent log lines the bridge sent (newest first). Kept for the
+    # bridge's log entity so you can read the tail from Home Assistant.
+    log: list[dict[str, Any]] = field(default_factory=list)
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 

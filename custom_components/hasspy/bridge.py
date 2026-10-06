@@ -17,7 +17,6 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.entity import EntityCategory
 
 from .entity import device_info_for
-
 if TYPE_CHECKING:
     from .runtime import HasspyRuntime
     from .store import BridgeRecord
@@ -131,4 +130,43 @@ class AutomationsSensor(_BridgeEntity, SensorEntity):
             ],
             "ids": [_automation_key(a) for a in automations],
             "scope": record.scope,
+        }
+
+
+class LastLogSensor(_BridgeEntity, SensorEntity):
+    """The most recent log line hasspy sent for this bridge.
+
+    A "what is this automation doing?" read-out without opening the logbook.
+    The state is the newest entry; `log` holds the recent tail.
+    """
+
+    _attr_should_poll = False
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:script-text-outline"
+
+    def __init__(self, runtime: HasspyRuntime, bridge: str) -> None:
+        _BridgeEntity.__init__(self, runtime, bridge)
+        self._attr_unique_id = f"{bridge}|__bridge|last_log"
+        self._attr_name = "Last log"
+        self.entity_id = f"sensor.{bridge}_last_log"
+
+    @property
+    def native_value(self) -> str | None:
+        record = self._record
+        if not record or not record.log:
+            return None
+        entry = record.log[0]
+        auto = entry.get("automation")
+        msg = entry.get("message", "")
+        return f"[{auto}] {msg}" if auto else msg
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        record = self._record
+        if record is None:
+            return {}
+        return {
+            "log": record.log,
+            "count": len(record.log),
         }

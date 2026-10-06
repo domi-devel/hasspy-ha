@@ -284,3 +284,58 @@ async def test_control_value_is_not_reset_by_a_recreate(hass: HomeAssistant) -> 
     await hass.async_block_till_done()
 
     assert hass.states.get("number.stick").state == "42.0"
+
+
+# --- log service ------------------------------------------------------------
+
+
+async def test_log_creates_a_last_log_sensor(hass: HomeAssistant) -> None:
+    await hass.services.async_call(
+        DOMAIN, "register_bridge", {"bridge": "prod"}, blocking=True
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.prod_last_log") is not None
+
+    await hass.services.async_call(
+        DOMAIN,
+        "log",
+        {
+            "bridge": "prod",
+            "automation": "roller#0",
+            "message": "scheduled sunrise +50",
+            "level": "info",
+        },
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get("sensor.prod_last_log")
+    assert state.state == "[roller#0] scheduled sunrise +50"
+    assert state.attributes["log"][0]["automation"] == "roller#0"
+    assert state.attributes["log"][0]["level"] == "info"
+
+
+async def test_log_keeps_newest_first_and_is_capped(hass: HomeAssistant) -> None:
+    from custom_components.hasspy.services import MAX_LOG_ENTRIES
+
+    await hass.services.async_call(
+        DOMAIN, "register_bridge", {"bridge": "prod"}, blocking=True
+    )
+    for i in range(MAX_LOG_ENTRIES + 5):
+        await hass.services.async_call(
+            DOMAIN, "log", {"bridge": "prod", "message": f"line {i}"}, blocking=True
+        )
+    await hass.async_block_till_done()
+
+    log = hass.states.get("sensor.prod_last_log").attributes["log"]
+    assert len(log) == MAX_LOG_ENTRIES
+    assert log[0]["message"] == f"line {MAX_LOG_ENTRIES + 4}"  # newest first
+    assert log[-1]["message"] == "line 5"  # oldest kept
+
+
+async def test_log_self_heals_an_unknown_bridge(hass: HomeAssistant) -> None:
+    await hass.services.async_call(
+        DOMAIN, "log", {"bridge": "ghost", "message": "hello"}, blocking=True
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.ghost_last_log").state == "hello"

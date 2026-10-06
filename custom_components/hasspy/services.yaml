@@ -53,6 +53,32 @@ heartbeat:
       selector:
         object:
 
+log:
+  fields:
+    bridge:
+      required: true
+      selector:
+        text:
+    message:
+      required: true
+      selector:
+        text:
+          multiline: true
+    automation:
+      selector:
+        text:
+    level:
+      selector:
+        select:
+          options:
+            - debug
+            - info
+            - warning
+            - error
+    logbook:
+      selector:
+        boolean:
+
 remove_bridge:
   fields:
     bridge:

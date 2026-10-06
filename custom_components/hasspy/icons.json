@@ -2,6 +2,7 @@
   "services": {
     "register_bridge": { "service": "mdi:lan-connect" },
     "heartbeat": { "service": "mdi:heart-pulse" },
+    "log": { "service": "mdi:script-text-outline" },
     "remove_bridge": { "service": "mdi:lan-disconnect" },
     "create_entity": { "service": "mdi:plus-box-outline" },
     "set_entity_state": { "service": "mdi:upload" },

@@ -26,6 +26,7 @@ publishes into.
 | --- | --- |
 | `hasspy.register_bridge` | Announce a hasspy process (idempotent). |
 | `hasspy.heartbeat` | Keep a bridge alive; refresh its automation list. |
+| `hasspy.log` | Record a log line from an automation (logbook + `sensor.<bridge>_last_log`). |
 | `hasspy.create_entity` | Create/update a dynamic entity; **returns `entity_id`**. |
 | `hasspy.set_entity_state` | Push a value, refreshing the entity's lease. |
 | `hasspy.delete_entity` | Remove a dynamic entity. |
@@ -35,8 +36,9 @@ publishes into.
 | `hasspy.pin` / `unpin` | Exempt debug entities from GC. |
 
 Entities are grouped per bridge under a device `hasspy <bridge>`, together with
-two presence entities: `binary_sensor.<bridge>_bridge_online` and
-`sensor.<bridge>_automations`.
+three per-bridge entities: `binary_sensor.<bridge>_bridge_online`,
+`sensor.<bridge>_automations`, and `sensor.<bridge>_last_log` (the most recent
+line an automation logged; see [`docs/LOGGING.md`](docs/LOGGING.md)).
 
 ### Values and controls
 

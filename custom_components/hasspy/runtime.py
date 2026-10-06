@@ -12,7 +12,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .bridge import AutomationsSensor, BridgeOnlineEntity
+from .bridge import AutomationsSensor, BridgeOnlineEntity, LastLogSensor
 from .const import DOMAIN, MANIFEST_VERSION
 from .debug import DebugCollector
 from .entity import build_entity, device_info_for
@@ -73,6 +73,11 @@ class HasspyRuntime:
                     f"{bridge}|__bridge|automations",
                     lambda b=bridge: AutomationsSensor(self, b),
                 )
+                self._get_or_build(
+                    domain,
+                    f"{bridge}|__bridge|last_log",
+                    lambda b=bridge: LastLogSensor(self, b),
+                )
 
     async def async_spawn_stored(self, domain: str) -> None:
         """(Re-)create the persisted dynamic entities of one platform."""
@@ -107,8 +112,8 @@ class HasspyRuntime:
     def async_sync_bridge(self, bridge: str) -> None:
         """Refresh the presence entities after a register/heartbeat."""
         self.async_ensure_device(bridge)
-        for unique_id in (f"{bridge}|__bridge|online", f"{bridge}|__bridge|automations"):
-            entity = self._entities.get(unique_id)
+        for key in ("online", "automations", "last_log"):
+            entity = self._entities.get(f"{bridge}|__bridge|{key}")
             if entity is not None:
                 entity.async_write_ha_state()
         self.async_ensure_bridge_entities("binary_sensor")

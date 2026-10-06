@@ -50,6 +50,17 @@
         "delete_entities": { "name": "Delete entities" }
       }
     },
+    "log": {
+      "name": "Log",
+      "description": "Log a line from a hasspy automation. Stored on sensor.<bridge>_last_log, mirrored to the HA log, and written to the logbook.",
+      "fields": {
+        "bridge": { "name": "Bridge" },
+        "message": { "name": "Message" },
+        "automation": { "name": "Automation", "description": "Owning app instance id." },
+        "level": { "name": "Level" },
+        "logbook": { "name": "Logbook", "description": "Also write it to the HA logbook timeline." }
+      }
+    },
     "create_entity": {
       "name": "Create entity",
       "description": "Create or update a dynamic entity (value or control). Returns its entity_id.",

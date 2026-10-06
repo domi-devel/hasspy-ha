@@ -18,6 +18,7 @@ MANIFEST_VERSION = "0.1.0"
 SERVICE_REGISTER_BRIDGE = "register_bridge"
 SERVICE_REMOVE_BRIDGE = "remove_bridge"
 SERVICE_HEARTBEAT = "heartbeat"
+SERVICE_LOG = "log"
 
 SERVICE_CREATE_ENTITY = "create_entity"
 SERVICE_SET_ENTITY_STATE = "set_entity_state"
