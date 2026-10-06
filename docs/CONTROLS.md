@@ -62,8 +62,35 @@ self.sunset_offset_id = self.create_control(
 )
 ```
 
-An existing control's value is preserved on re-create unless `value` is passed,
-so a restart never resets the user's setting.
+An existing control's value is **preserved** on re-create unless `value` is
+passed — and even then only on the *first* create. That matters because
+`create_control` is normally called in `initialize()` with its default value on
+every startup: the default seeds the entity once and never overrides the user
+afterwards.
+
+### Publishing values
+
+A value entity (`sensor`/`binary_sensor`) is written by hasspy, so use
+`publish(key, state, ...)` — create-or-update and return the `entity_id`. Call
+it once in `initialize()` to create the entity, then again wherever the value
+changes:
+
+```python
+class Roller(Automation):
+    def initialize(self):
+        self.publish("up", domain="sensor", object_id="roller_normal_up",
+                     name="Roller normal up", device_class="timestamp")
+        ...
+    def on_sunrise_change(self, ...):
+        self.publish("up", next_sunrise.isoformat())
+```
+
+Unlike the old REST `set_state`, the entity is **registered**: it keeps a stable
+`entity_id` and survives a Home Assistant restart instead of vanishing until the
+next write. `scope="debug"` leases a throw-away value (see DEBUG_ENTITIES.md).
+
+Pass descriptors only on the create call. A state-only `publish` leaves them
+untouched, so `device_class`/unit/name are never wiped by a value update.
 
 ## Writing them
 
