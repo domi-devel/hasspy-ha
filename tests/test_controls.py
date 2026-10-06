@@ -259,3 +259,28 @@ async def test_control_is_never_garbage_collected(
     # release_session releases debug *values* only.
     released = await _call(hass, "release_session", bridge="dbg")
     assert released["count"] == 0
+
+
+async def test_control_value_is_not_reset_by_a_recreate(hass: HomeAssistant) -> None:
+    """create_control passes its default `value` on every call; on an existing
+    control that default must NOT overwrite the user's setting."""
+    await _mk_control(
+        hass, key="off", domain="number", min=0, max=100, object_id="stick", state=7
+    )
+    await hass.async_block_till_done()
+
+    # The user changes it.
+    await hass.services.async_call(
+        "number", "set_value",
+        {"entity_id": "number.stick", "value": 42}, blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    # hasspy restarts and re-declares its default.
+    await _call(
+        hass, "create_entity", bridge="prod", key="off", domain="number",
+        min=0, max=100, object_id="stick", state=7,
+    )
+    await hass.async_block_till_done()
+
+    assert hass.states.get("number.stick").state == "42.0"

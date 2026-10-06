@@ -289,8 +289,15 @@ def async_setup_services(hass: HomeAssistant) -> None:
         if call.data.get("attributes"):
             record.attributes = dict(call.data["attributes"])
         record.initial_state = call.data.get("state")
-        if existing is None or call.data.get("state") is not None:
+        # A *value* entity is written by hasspy, so every call sets its state.
+        # A *control* is owned by the user: `state`/`value` is only the initial
+        # default, applied when the entity is first created -- otherwise every
+        # hasspy restart would reset the user's setting back to the declared
+        # default (the class default is passed on each create_control call).
+        if existing is None:
             record.state = call.data.get("state")
+        elif not record.is_control and call.data.get("state") is not None:
+            record.state = call.data["state"]
 
         # Lifetime for debug entities: inherit the bridge defaults, allow an
         # explicit pin so a developer can keep a dump indefinitely.
