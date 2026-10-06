@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from .const import (
+    CONTROL_DOMAINS,
     DEFAULT_BRIDGE_STALE_SECONDS,
     DEFAULT_GRACE_SECONDS,
     DEFAULT_LEASE_SECONDS,
@@ -67,6 +68,16 @@ class EntityRecord:
     icon: str | None = None
     entity_category: str | None = None
 
+    # Control descriptors (domain in CONTROL_DOMAINS). A control is a *setting*:
+    # Home Assistant holds the value and the user edits it; hasspy reads it.
+    min: float | None = None
+    max: float | None = None
+    step: float | None = None
+    mode: str | None = None  # number: "box" | "slider"
+    options: list[str] | None = None  # select
+    has_date: bool | None = None  # datetime
+    has_time: bool | None = None  # datetime
+
     attributes: dict[str, Any] = field(default_factory=dict)
     state: Any = None
     initial_state: Any = None
@@ -78,6 +89,10 @@ class EntityRecord:
     last_seen: float = 0.0
     stale_since: float | None = None
     created_at: float = 0.0
+
+    @property
+    def is_control(self) -> bool:
+        return self.domain in CONTROL_DOMAINS
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

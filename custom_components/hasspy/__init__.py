@@ -26,7 +26,7 @@ from .store import HasspyStore
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["binary_sensor", "sensor"]
+PLATFORMS = ["binary_sensor", "sensor", "number", "select", "switch", "datetime"]
 
 # This integration has no YAML configuration; it is set up from the UI only.
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)

@@ -27,7 +27,7 @@ publishes into.
 | `hasspy.register_bridge` | Announce a hasspy process (idempotent). |
 | `hasspy.heartbeat` | Keep a bridge alive; refresh its automation list. |
 | `hasspy.create_entity` | Create/update a dynamic entity; **returns `entity_id`**. |
-| `hasspy.set_entity_state` | Push a state, refreshing the entity's lease. |
+| `hasspy.set_entity_state` | Push a value, refreshing the entity's lease. |
 | `hasspy.delete_entity` | Remove a dynamic entity. |
 | `hasspy.list_bridges` / `list_entities` | Introspect what hasspy has published. |
 | `hasspy.release_session` | Delete a debug session immediately (graceful exit). |
@@ -37,6 +37,20 @@ publishes into.
 Entities are grouped per bridge under a device `hasspy <bridge>`, together with
 two presence entities: `binary_sensor.<bridge>_bridge_online` and
 `sensor.<bridge>_automations`.
+
+### Values and controls
+
+`create_entity` takes two kinds of entity, and the difference matters:
+
+* **Values** (`sensor`, `binary_sensor`) — hasspy is the writer; a debug run's
+  values are lease-managed.
+* **Controls** (`number`, `select`, `switch`, `datetime`) — *settings* the user
+  edits in Home Assistant. They are permanent (never garbage-collected) and
+  carry a `control_value` attribute so hasspy can read any domain uniformly.
+  This is what replaces scattered `input_number` / `input_select` /
+  `input_boolean` / `input_datetime` helpers.
+
+See [`docs/CONTROLS.md`](docs/CONTROLS.md).
 
 ## The idea in one picture
 

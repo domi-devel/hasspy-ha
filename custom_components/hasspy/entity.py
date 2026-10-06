@@ -26,7 +26,15 @@ _LOGGER = logging.getLogger(__name__)
 # Attributes that change on every sweep and are useless in history: keeping
 # them out of the recorder avoids churning the database with debug traffic.
 _UNRECORDED = frozenset(
-    {"last_seen", "lifecycle_state", "lease_ttl", "grace_seconds", "pinned"}
+    {
+        "last_seen",
+        "lifecycle_state",
+        "lease_ttl",
+        "grace_seconds",
+        "pinned",
+        # Mirrors the entity state, so recording it would double every write.
+        "control_value",
+    }
 )
 
 _TRUE = {"on", "true", "yes", "open", "home", "detected", "wet", "1"}
@@ -148,7 +156,7 @@ class HasspyDynamicEntity(Entity):
     def extra_state_attributes(self) -> dict[str, Any]:
         record = self.record
         bridge = self.runtime.store.get_bridge(record.bridge)
-        return {
+        attrs = {
             **record.attributes,
             "key": record.key,
             "bridge": record.bridge,
@@ -161,6 +169,16 @@ class HasspyDynamicEntity(Entity):
             "last_seen": record.last_seen or None,
             "hasspy_managed": True,
         }
+        if record.is_control:
+            # hasspy reads settings from this attribute rather than parsing the
+            # domain state, so a datetime/number/select all look the same.
+            attrs["control_value"] = self.control_value
+        return attrs
+
+    @property
+    def control_value(self) -> Any:
+        """The setting as hasspy should read it (subclasses override)."""
+        return self.record.state
 
     # -- push from the integration ------------------------------------------
 
@@ -181,11 +199,21 @@ def build_entity(runtime: HasspyRuntime, record: EntityRecord) -> Entity | None:
     without a cycle.
     """
     from .binary_sensor import HasspyBinarySensor
+    from .control import (
+        HasspyDatetime,
+        HasspyNumber,
+        HasspySelect,
+        HasspySwitch,
+    )
     from .sensor import HasspySensor
 
     builders = {
         "sensor": HasspySensor,
         "binary_sensor": HasspyBinarySensor,
+        "number": HasspyNumber,
+        "select": HasspySelect,
+        "switch": HasspySwitch,
+        "datetime": HasspyDatetime,
     }
     cls = builders.get(record.domain)
     if cls is None:

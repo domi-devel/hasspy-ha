@@ -38,9 +38,12 @@ SCOPE_DEBUG = "debug"
 SCOPES = (SCOPE_PRODUCTION, SCOPE_DEBUG)
 
 # --- dynamic entity domains -------------------------------------------------
-# Only these two are implemented to start with; adding "number", "switch", ...
-# is a matter of adding a platform module + a case in entity.build_entity.
-DYNAMIC_DOMAINS = ("sensor", "binary_sensor")
+# Value entities: hasspy pushes state, Home Assistant reads it.
+VALUE_DOMAINS = ("sensor", "binary_sensor")
+# Control entities: the value is a *setting*. Home Assistant is the source of
+# truth (the user edits it in the UI), and hasspy both reads and can write it.
+CONTROL_DOMAINS = ("number", "select", "switch", "datetime")
+DYNAMIC_DOMAINS = VALUE_DOMAINS + CONTROL_DOMAINS
 
 # --- lifecycle states (not HA states; internal bookkeeping) ----------------
 STATE_ACTIVE = "active"

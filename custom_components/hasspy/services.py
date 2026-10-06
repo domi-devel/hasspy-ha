@@ -120,6 +120,14 @@ CREATE_ENTITY_SCHEMA = vol.Schema(
         vol.Optional("scope"): vol.In(SCOPES),
         vol.Optional("ttl"): vol.Coerce(float),
         vol.Optional("pin", default=False): bool,
+        # Control descriptors, used when domain is number/select/switch/datetime.
+        vol.Optional("min"): vol.Coerce(float),
+        vol.Optional("max"): vol.Coerce(float),
+        vol.Optional("step"): vol.Coerce(float),
+        vol.Optional("mode"): vol.In(("auto", "box", "slider")),
+        vol.Optional("options"): [str],
+        vol.Optional("has_date"): bool,
+        vol.Optional("has_time"): bool,
     }
 )
 
@@ -263,6 +271,14 @@ def async_setup_services(hass: HomeAssistant) -> None:
         record.state_class = call.data.get("state_class")
         record.icon = call.data.get("icon")
         record.entity_category = call.data.get("entity_category")
+        # Control descriptors (only meaningful for the control domains).
+        record.min = call.data.get("min")
+        record.max = call.data.get("max")
+        record.step = call.data.get("step")
+        record.mode = call.data.get("mode")
+        record.options = call.data.get("options")
+        record.has_date = call.data.get("has_date")
+        record.has_time = call.data.get("has_time")
         record.attributes = dict(call.data.get("attributes") or {})
         record.initial_state = call.data.get("state")
         if existing is None or call.data.get("state") is not None:
@@ -270,7 +286,8 @@ def async_setup_services(hass: HomeAssistant) -> None:
 
         # Lifetime for debug entities: inherit the bridge defaults, allow an
         # explicit pin so a developer can keep a dump indefinitely.
-        if scope == SCOPE_DEBUG:
+        # Controls are settings: always durable, never leased.
+        if scope == SCOPE_DEBUG and not record.is_control:
             record.ttl = call.data.get("ttl", record_bridge.ttl)
             record.pinned = bool(call.data.get("pin"))
             record.persist = True
@@ -311,6 +328,11 @@ def async_setup_services(hass: HomeAssistant) -> None:
             raise ServiceValidationError(
                 f"Unknown hasspy entity {build_unique_id(bridge, automation, key)!r}. "
                 "Call hasspy.create_entity first."
+            )
+        if record.is_control:
+            raise ServiceValidationError(
+                f"{record.unique_id!r} is a control ({record.domain}). Use "
+                "hasspy.set_control, or the entity's own service in Home Assistant."
             )
         if "state" in call.data:
             record.state = call.data["state"]
@@ -390,7 +412,12 @@ def async_setup_services(hass: HomeAssistant) -> None:
         automation = call.data.get("automation")
         removed = []
         for record in list(runtime.store.entities.values()):
-            if record.bridge != bridge or record.scope != SCOPE_DEBUG:
+            # Only debug *values*: a control is a setting and must survive.
+            if (
+                record.bridge != bridge
+                or record.scope != SCOPE_DEBUG
+                or record.is_control
+            ):
                 continue
             if automation is not None and record.automation != automation:
                 continue

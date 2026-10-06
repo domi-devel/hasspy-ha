@@ -52,12 +52,12 @@
     },
     "create_entity": {
       "name": "Create entity",
-      "description": "Create or update a dynamic entity. Returns its entity_id.",
+      "description": "Create or update a dynamic entity (value or control). Returns its entity_id.",
       "fields": {
         "bridge": { "name": "Bridge" },
         "automation": { "name": "Automation", "description": "Owning app instance id, for grouping and lifecycle." },
         "key": { "name": "Key", "description": "Stable key, unique within the automation." },
-        "domain": { "name": "Domain" },
+        "domain": { "name": "Domain", "description": "sensor/binary_sensor are values (hasspy writes); number/select/switch/datetime are controls (the user edits)." },
         "name": { "name": "Name" },
         "object_id": { "name": "Object id", "description": "Explicit object_id for the entity_id." },
         "device_class": { "name": "Device class" },
@@ -67,9 +67,16 @@
         "entity_category": { "name": "Entity category" },
         "attributes": { "name": "Attributes" },
         "state": { "name": "State" },
-        "scope": { "name": "Scope", "description": "production is permanent; debug is lease-managed." },
-        "ttl": { "name": "Lease TTL", "description": "Debug only: seconds before the entity goes stale." },
-        "pin": { "name": "Pin", "description": "Debug only: exempt from garbage collection." }
+        "scope": { "name": "Scope", "description": "production is permanent; debug is lease-managed (values only)." },
+        "ttl": { "name": "Lease TTL", "description": "Debug values only: seconds before the entity goes stale." },
+        "pin": { "name": "Pin", "description": "Debug values only: exempt from garbage collection." },
+        "min": { "name": "Minimum", "description": "number: minimum value." },
+        "max": { "name": "Maximum", "description": "number: maximum value." },
+        "step": { "name": "Step", "description": "number: step size." },
+        "mode": { "name": "Mode", "description": "number: box, slider or auto." },
+        "options": { "name": "Options", "description": "select: the allowed choices." },
+        "has_date": { "name": "Has date", "description": "datetime: include the date part." },
+        "has_time": { "name": "Has time", "description": "datetime: include the time part." }
       }
     },
     "set_entity_state": {

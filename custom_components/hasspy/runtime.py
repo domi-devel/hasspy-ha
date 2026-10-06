@@ -221,3 +221,26 @@ class HasspyRuntime:
     def async_mark_seen(self, record: EntityRecord, now: float | None = None) -> None:
         record.last_seen = now if now is not None else time.time()
         record.stale_since = None
+
+    @callback
+    def async_control_changed(self, record: EntityRecord) -> None:
+        """A control (setting) changed, whether by the user or by hasspy.
+
+        Controls are the source of truth for a setting, so a change is durable:
+        we persist it and fire an event hasspy automations can listen for.
+        Because a user edit is not a "lease keepalive", last_seen is untouched —
+        controls are not garbage-collected.
+        """
+        self.store.async_schedule_save()
+        self.hass.bus.async_fire(
+            f"{DOMAIN}_control_changed",
+            {
+                "bridge": record.bridge,
+                "automation": record.automation,
+                "key": record.key,
+                "entity_id": getattr(
+                    self._entities.get(record.unique_id), "entity_id", None
+                ),
+                "value": record.state,
+            },
+        )

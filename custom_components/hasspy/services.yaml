@@ -83,6 +83,10 @@ create_entity:
           options:
             - sensor
             - binary_sensor
+            - number
+            - select
+            - switch
+            - datetime
     name:
       selector:
         text:
@@ -128,26 +132,34 @@ create_entity:
     pin:
       selector:
         boolean:
-
-set_entity_state:
-  fields:
-    bridge:
-      required: true
+    min:
       selector:
-        text:
-    automation:
+        number:
+          mode: box
+    max:
       selector:
-        text:
-    key:
-      required: true
+        number:
+          mode: box
+    step:
       selector:
-        text:
-    state:
+        number:
+          mode: box
+    mode:
+      selector:
+        select:
+          options:
+            - auto
+            - box
+            - slider
+    options:
       selector:
         object:
-    attributes:
+    has_date:
       selector:
-        object:
+        boolean:
+    has_time:
+      selector:
+        boolean:
 
 delete_entity:
   fields:

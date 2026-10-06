@@ -53,7 +53,8 @@ class DebugCollector:
         counts = {"stale": 0, "revived": 0, "collected": 0, "kept": 0}
 
         for record in list(store.entities.values()):
-            if record.scope != SCOPE_DEBUG or record.pinned:
+            # Controls are settings, never garbage: they persist by design.
+            if record.scope != SCOPE_DEBUG or record.pinned or record.is_control:
                 counts["kept"] += 1
                 continue
 
