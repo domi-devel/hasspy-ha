@@ -1,0 +1,140 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "hasspy",
+        "description": "Add the hasspy bridge. This is a local sink that a hasspy runtime publishes entities into; no settings are required."
+      }
+    },
+    "abort": {
+      "already_configured": "hasspy is already configured."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "bridge_online": { "name": "Bridge online" }
+    },
+    "sensor": {
+      "automations": { "name": "Automations" }
+    }
+  },
+  "services": {
+    "register_bridge": {
+      "name": "Register bridge",
+      "description": "Announce a hasspy process. Idempotent; safe to call on every (re)connect.",
+      "fields": {
+        "bridge": { "name": "Bridge", "description": "Bridge id (e.g. production, debug)." },
+        "name": { "name": "Name", "description": "Human-readable name shown on the device." },
+        "scope": { "name": "Scope", "description": "Default scope for entities created without one." },
+        "run_id": { "name": "Run id", "description": "Opaque id that changes on every process start." },
+        "ttl": { "name": "Lease TTL", "description": "Default lease for debug entities (seconds)." },
+        "grace": { "name": "Grace", "description": "Default grace before collection (seconds)." },
+        "stale_after": { "name": "Stale after", "description": "Seconds without a heartbeat before the bridge counts as offline." },
+        "automations": { "name": "Automations", "description": "List of loaded automation descriptors." }
+      }
+    },
+    "heartbeat": {
+      "name": "Heartbeat",
+      "description": "Keep a bridge alive and refresh its automation list.",
+      "fields": {
+        "bridge": { "name": "Bridge" },
+        "run_id": { "name": "Run id" },
+        "automations": { "name": "Automations" }
+      }
+    },
+    "remove_bridge": {
+      "name": "Remove bridge",
+      "description": "Forget a bridge, optionally deleting all of its entities.",
+      "fields": {
+        "bridge": { "name": "Bridge" },
+        "delete_entities": { "name": "Delete entities" }
+      }
+    },
+    "create_entity": {
+      "name": "Create entity",
+      "description": "Create or update a dynamic entity. Returns its entity_id.",
+      "fields": {
+        "bridge": { "name": "Bridge" },
+        "automation": { "name": "Automation", "description": "Owning app instance id, for grouping and lifecycle." },
+        "key": { "name": "Key", "description": "Stable key, unique within the automation." },
+        "domain": { "name": "Domain" },
+        "name": { "name": "Name" },
+        "object_id": { "name": "Object id", "description": "Explicit object_id for the entity_id." },
+        "device_class": { "name": "Device class" },
+        "unit": { "name": "Unit of measurement" },
+        "state_class": { "name": "State class" },
+        "icon": { "name": "Icon" },
+        "entity_category": { "name": "Entity category" },
+        "attributes": { "name": "Attributes" },
+        "state": { "name": "State" },
+        "scope": { "name": "Scope", "description": "production is permanent; debug is lease-managed." },
+        "ttl": { "name": "Lease TTL", "description": "Debug only: seconds before the entity goes stale." },
+        "pin": { "name": "Pin", "description": "Debug only: exempt from garbage collection." }
+      }
+    },
+    "set_entity_state": {
+      "name": "Set entity state",
+      "description": "Push a state (and/or attributes) to a dynamic entity, refreshing its lease.",
+      "fields": {
+        "bridge": { "name": "Bridge" },
+        "automation": { "name": "Automation" },
+        "key": { "name": "Key" },
+        "state": { "name": "State" },
+        "attributes": { "name": "Attributes" }
+      }
+    },
+    "delete_entity": {
+      "name": "Delete entity",
+      "description": "Remove a dynamic entity.",
+      "fields": {
+        "bridge": { "name": "Bridge" },
+        "automation": { "name": "Automation" },
+        "key": { "name": "Key" },
+        "purge": { "name": "Purge", "description": "Also remove it from the registry." }
+      }
+    },
+    "list_bridges": {
+      "name": "List bridges",
+      "description": "Return every registered bridge with its online state."
+    },
+    "list_entities": {
+      "name": "List entities",
+      "description": "Return dynamic entities, optionally filtered.",
+      "fields": {
+        "bridge": { "name": "Bridge" },
+        "automation": { "name": "Automation" },
+        "scope": { "name": "Scope" }
+      }
+    },
+    "release_session": {
+      "name": "Release debug session",
+      "description": "Delete every debug entity of a bridge (or one automation) immediately. The graceful-shutdown path.",
+      "fields": {
+        "bridge": { "name": "Bridge" },
+        "automation": { "name": "Automation" },
+        "run_id": { "name": "Run id" }
+      }
+    },
+    "sweep": {
+      "name": "Sweep",
+      "description": "Run garbage collection now. dry_run returns the verdicts without deleting.",
+      "fields": { "dry_run": { "name": "Dry run" } }
+    },
+    "pin": {
+      "name": "Pin debug entities",
+      "description": "Exempt a bridge's (or automation's) debug entities from collection.",
+      "fields": {
+        "bridge": { "name": "Bridge" },
+        "automation": { "name": "Automation" }
+      }
+    },
+    "unpin": {
+      "name": "Unpin debug entities",
+      "description": "Remove the GC exemption again.",
+      "fields": {
+        "bridge": { "name": "Bridge" },
+        "automation": { "name": "Automation" }
+      }
+    }
+  }
+}

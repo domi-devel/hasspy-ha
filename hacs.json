@@ -1,0 +1,6 @@
+{
+  "name": "hasspy",
+  "homeassistant": "2025.1.0",
+  "zip_release": false,
+  "render_readme": true
+}

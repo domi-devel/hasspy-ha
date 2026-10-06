@@ -1,0 +1,223 @@
+# Service action *descriptions* (fields/selectors). Names and descriptions come
+# from strings.json / translations/<lang>.json under "services".
+register_bridge:
+  fields:
+    bridge:
+      required: true
+      selector:
+        text:
+    name:
+      selector:
+        text:
+    scope:
+      selector:
+        select:
+          options:
+            - production
+            - debug
+    run_id:
+      selector:
+        text:
+    ttl:
+      selector:
+        number:
+          min: 5
+          max: 86400
+          unit_of_measurement: s
+    grace:
+      selector:
+        number:
+          min: 0
+          max: 172800
+          unit_of_measurement: s
+    stale_after:
+      selector:
+        number:
+          min: 10
+          max: 3600
+          unit_of_measurement: s
+    automations:
+      selector:
+        object:
+
+heartbeat:
+  fields:
+    bridge:
+      required: true
+      selector:
+        text:
+    run_id:
+      selector:
+        text:
+    automations:
+      selector:
+        object:
+
+remove_bridge:
+  fields:
+    bridge:
+      required: true
+      selector:
+        text:
+    delete_entities:
+      selector:
+        boolean:
+
+create_entity:
+  fields:
+    bridge:
+      required: true
+      selector:
+        text:
+    automation:
+      selector:
+        text:
+    key:
+      required: true
+      selector:
+        text:
+    domain:
+      required: true
+      selector:
+        select:
+          options:
+            - sensor
+            - binary_sensor
+    name:
+      selector:
+        text:
+    object_id:
+      selector:
+        text:
+    device_class:
+      selector:
+        text:
+    unit:
+      selector:
+        text:
+    state_class:
+      selector:
+        text:
+    icon:
+      selector:
+        icon:
+    entity_category:
+      selector:
+        select:
+          options:
+            - config
+            - diagnostic
+    attributes:
+      selector:
+        object:
+    state:
+      selector:
+        object:
+    scope:
+      selector:
+        select:
+          options:
+            - production
+            - debug
+    ttl:
+      selector:
+        number:
+          min: 5
+          max: 86400
+          unit_of_measurement: s
+    pin:
+      selector:
+        boolean:
+
+set_entity_state:
+  fields:
+    bridge:
+      required: true
+      selector:
+        text:
+    automation:
+      selector:
+        text:
+    key:
+      required: true
+      selector:
+        text:
+    state:
+      selector:
+        object:
+    attributes:
+      selector:
+        object:
+
+delete_entity:
+  fields:
+    bridge:
+      required: true
+      selector:
+        text:
+    automation:
+      selector:
+        text:
+    key:
+      required: true
+      selector:
+        text:
+    purge:
+      selector:
+        boolean:
+
+list_bridges: {}
+
+list_entities:
+  fields:
+    bridge:
+      selector:
+        text:
+    automation:
+      selector:
+        text:
+    scope:
+      selector:
+        select:
+          options:
+            - production
+            - debug
+
+release_session:
+  fields:
+    bridge:
+      required: true
+      selector:
+        text:
+    automation:
+      selector:
+        text:
+    run_id:
+      selector:
+        text:
+
+sweep:
+  fields:
+    dry_run:
+      selector:
+        boolean:
+
+pin:
+  fields:
+    bridge:
+      required: true
+      selector:
+        text:
+    automation:
+      selector:
+        text:
+
+unpin:
+  fields:
+    bridge:
+      required: true
+      selector:
+        text:
+    automation:
+      selector:
+        text:

@@ -1,0 +1,16 @@
+{
+  "services": {
+    "register_bridge": { "service": "mdi:lan-connect" },
+    "heartbeat": { "service": "mdi:heart-pulse" },
+    "remove_bridge": { "service": "mdi:lan-disconnect" },
+    "create_entity": { "service": "mdi:plus-box-outline" },
+    "set_entity_state": { "service": "mdi:upload" },
+    "delete_entity": { "service": "mdi:delete-outline" },
+    "list_bridges": { "service": "mdi:format-list-bulleted" },
+    "list_entities": { "service": "mdi:format-list-checks" },
+    "release_session": { "service": "mdi:broom" },
+    "sweep": { "service": "mdi:vacuum" },
+    "pin": { "service": "mdi:pin" },
+    "unpin": { "service": "mdi:pin-off" }
+  }
+}
