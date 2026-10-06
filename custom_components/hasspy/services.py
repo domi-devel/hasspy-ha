@@ -266,20 +266,28 @@ def async_setup_services(hass: HomeAssistant) -> None:
         if call.data.get("name") is not None:
             record.name = call.data["name"]
         record.object_id = call.data.get("object_id") or record.object_id
-        record.device_class = call.data.get("device_class")
-        record.unit = call.data.get("unit")
-        record.state_class = call.data.get("state_class")
-        record.icon = call.data.get("icon")
-        record.entity_category = call.data.get("entity_category")
-        # Control descriptors (only meaningful for the control domains).
-        record.min = call.data.get("min")
-        record.max = call.data.get("max")
-        record.step = call.data.get("step")
-        record.mode = call.data.get("mode")
-        record.options = call.data.get("options")
-        record.has_date = call.data.get("has_date")
-        record.has_time = call.data.get("has_time")
-        record.attributes = dict(call.data.get("attributes") or {})
+        # Descriptors are only overwritten when supplied. `create_entity` is
+        # also the "publish a new value" path (see Automation.publish), so a
+        # repeat call carries just the state and must not wipe the descriptor
+        # it was first created with.
+        for field in (
+            "device_class",
+            "unit",
+            "state_class",
+            "icon",
+            "entity_category",
+            "min",
+            "max",
+            "step",
+            "mode",
+            "options",
+            "has_date",
+            "has_time",
+        ):
+            if call.data.get(field) is not None:
+                setattr(record, field, call.data[field])
+        if call.data.get("attributes"):
+            record.attributes = dict(call.data["attributes"])
         record.initial_state = call.data.get("state")
         if existing is None or call.data.get("state") is not None:
             record.state = call.data.get("state")

@@ -195,6 +195,79 @@ async def test_create_entity_is_idempotent(hass: HomeAssistant) -> None:
     assert hass.states.get(first["entity_id"]).state == "2"
 
 
+async def test_state_only_update_preserves_descriptors(hass: HomeAssistant) -> None:
+    """`publish(key, state)` must not wipe the descriptors from creation.
+
+    create_entity is also the value-update path (Automation.publish), so a
+    repeat call carrying only a state has to keep device_class/name.
+    """
+    await hass.services.async_call(
+        DOMAIN, "register_bridge", {"bridge": "production"}, blocking=True
+    )
+    created = await _call(
+        hass,
+        "create_entity",
+        bridge="production",
+        automation="roller#0",
+        key="up",
+        domain="sensor",
+        name="Roller up",
+        object_id="roller_normal_up",
+        device_class="timestamp",
+        state="2026-10-07T06:00:00+00:00",
+    )
+    await hass.async_block_till_done()
+
+    # A value-only update, exactly what publish() sends on every change.
+    await _call(
+        hass,
+        "create_entity",
+        bridge="production",
+        automation="roller#0",
+        key="up",
+        domain="sensor",
+        object_id="roller_normal_up",
+        state="2026-10-08T06:00:00+00:00",
+    )
+    await hass.async_block_till_done()
+
+    state = hass.states.get(created["entity_id"])
+    assert state.state.startswith("2026-10-08")
+    assert state.attributes["device_class"] == "timestamp"
+    assert "Roller up" in state.attributes["friendly_name"]
+
+
+async def test_descriptor_change_is_applied_when_supplied(hass: HomeAssistant) -> None:
+    await hass.services.async_call(
+        DOMAIN, "register_bridge", {"bridge": "production"}, blocking=True
+    )
+    created = await _call(
+        hass,
+        "create_entity",
+        bridge="production",
+        key="v",
+        domain="sensor",
+        object_id="desc_swap",
+        unit="W",
+        state=1,
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get(created["entity_id"]).attributes["unit_of_measurement"] == "W"
+
+    await _call(
+        hass,
+        "create_entity",
+        bridge="production",
+        key="v",
+        domain="sensor",
+        object_id="desc_swap",
+        unit="kW",
+        state=2,
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get(created["entity_id"]).attributes["unit_of_measurement"] == "kW"
+
+
 async def test_delete_entity_removes_it(hass: HomeAssistant) -> None:
     await hass.services.async_call(
         DOMAIN, "register_bridge", {"bridge": "production"}, blocking=True
