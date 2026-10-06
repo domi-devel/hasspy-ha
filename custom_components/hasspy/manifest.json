@@ -3,13 +3,10 @@
   "name": "hasspy",
   "codeowners": ["@domi-devel"],
   "config_flow": true,
-  "single_config_entry": true,
-  "dependencies": [],
-  "after_dependencies": [],
   "documentation": "https://github.com/domi-devel/hasspy-ha",
   "integration_type": "hub",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/domi-devel/hasspy-ha/issues",
-  "requirements": [],
+  "single_config_entry": true,
   "version": "0.1.0"
 }
