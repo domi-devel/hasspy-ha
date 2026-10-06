@@ -92,6 +92,30 @@ next write. `scope="debug"` leases a throw-away value (see DEBUG_ENTITIES.md).
 Pass descriptors only on the create call. A state-only `publish` leaves them
 untouched, so `device_class`/unit/name are never wiped by a value update.
 
+`shared=True` publishes the value bridge-level (no automation in its key), for a
+computed value that another app also reads — e.g. `thermal_indicators` publishes
+`heat_capacity` which the heatpump optimizer reads back:
+
+```python
+# thermal_indicators (writer)
+self.publish("heat_capacity", value, unit="J/K", state_class="measurement",
+             shared=True)
+# heatpump (reader)
+capacity = self.get_state("sensor.heat_capacity")["state"]
+```
+
+### So: value or setting?
+
+That question is answered by *which method you call*, not by a property of the
+entity — so you never have to ask it:
+
+| You want | Call | Result |
+| --- | --- | --- |
+| hasspy to publish data | `publish(key, state, ...)` | a value entity (`sensor`/`binary_sensor`) |
+| a setting the user edits | `create_control(key, domain=..., value=...)` | a control entity (`number`/`select`/`switch`/`datetime`) |
+| to read either | `get_state(entity_id)` / `get_control(entity_id, default)` | the value / the setting |
+| to write a setting | `set_control(entity_id, value)` | native domain service |
+
 ## Writing them
 
 Most apps only read controls. To write one:
