@@ -346,6 +346,58 @@ async def test_pin_exempts_debug_entity_from_collection(
     assert hass.states.get(created["entity_id"]) is not None
 
 
+async def test_create_entity_inherits_bridge_scope(hass: HomeAssistant) -> None:
+    """A `scope: debug` bridge must not require `scope: debug` on every create.
+
+    Regression: the create_entity schema used to inject `scope: production` as
+    a default, so entities created on a debug bridge silently became permanent.
+    """
+    await hass.services.async_call(
+        DOMAIN, "register_bridge", {"bridge": "dbg", "scope": "debug"}, blocking=True
+    )
+    await hass.async_block_till_done()
+
+    created = await _call(
+        hass, "create_entity", bridge="dbg", key="k", domain="sensor", state=1
+    )
+    assert created["scope"] == "debug"
+    assert created["grace"] is not None
+
+    # And it is collected by release_session, i.e. it really is debug scoped.
+    released = await _call(hass, "release_session", bridge="dbg")
+    assert released["count"] == 1
+
+
+async def test_remove_bridge_tears_down_device_and_entities(
+    hass: HomeAssistant, setup_integration
+) -> None:
+    """remove_bridge must not leave presence entities or a device behind."""
+    from homeassistant.helpers import device_registry as dr
+
+    entry, _ = setup_integration
+    await hass.services.async_call(
+        DOMAIN, "register_bridge", {"bridge": "gone"}, blocking=True
+    )
+    created = await _call(
+        hass, "create_entity", bridge="gone", key="k", domain="sensor", state=1
+    )
+    await hass.async_block_till_done()
+    assert hass.states.get("binary_sensor.gone_bridge_online") is not None
+
+    await hass.services.async_call(
+        DOMAIN,
+        "remove_bridge",
+        {"bridge": "gone", "delete_entities": True},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    assert hass.states.get("binary_sensor.gone_bridge_online") is None
+    assert hass.states.get("sensor.gone_automations") is None
+    assert hass.states.get(created["entity_id"]) is None
+    assert dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id) == []
+
+
 # --- persistence ------------------------------------------------------------
 
 

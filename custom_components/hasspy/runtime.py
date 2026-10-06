@@ -188,6 +188,35 @@ class HasspyRuntime:
             er.async_get(self.hass).async_remove(entity_id)
         return True
 
+    async def async_remove_bridge(self, bridge: str, *, delete_entities: bool) -> None:
+        """Forget a bridge, tearing down everything that belongs to it.
+
+        Removing the device removes its fixed presence entities (and, through
+        the device registry, any entity still attached to it). Dynamic entities
+        are removed explicitly first so their registry entries go too.
+        """
+        if delete_entities:
+            for record in list(self.store.entities_for_bridge(bridge)):
+                await self.async_remove_entity(record.unique_id)
+                self.store.drop_entity(record.unique_id)
+
+        # Fixed presence entities are not in the store, so drop them by key.
+        await self.async_remove_entity(f"{bridge}|__bridge|online")
+        await self.async_remove_entity(f"{bridge}|__bridge|automations")
+
+        self.store.remove_bridge(bridge)
+
+        # Drop the device last: this also clears anything still attached to it.
+        # Look it up via the config entry (async_get_device is deprecated in
+        # HA 2026.9+ since identifiers are no longer globally unique).
+        device_registry = dr.async_get(self.hass)
+        for device in dr.async_entries_for_config_entry(
+            device_registry, self.entry.entry_id
+        ):
+            if (DOMAIN, bridge) in device.identifiers:
+                device_registry.async_remove_device(device.id)
+                break
+
     @callback
     def async_mark_seen(self, record: EntityRecord, now: float | None = None) -> None:
         record.last_seen = now if now is not None else time.time()

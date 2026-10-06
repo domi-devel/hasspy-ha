@@ -116,7 +116,8 @@ CREATE_ENTITY_SCHEMA = vol.Schema(
         vol.Optional("entity_category"): vol.Any(str, None),
         vol.Optional("attributes", default=dict): dict,
         vol.Optional("state"): vol.Any(str, int, float, bool, None),
-        vol.Optional("scope", default=SCOPE_PRODUCTION): vol.In(SCOPES),
+        # No default: a missing scope inherits the bridge's scope.
+        vol.Optional("scope"): vol.In(SCOPES),
         vol.Optional("ttl"): vol.Coerce(float),
         vol.Optional("pin", default=False): bool,
     }
@@ -220,14 +221,11 @@ def async_setup_services(hass: HomeAssistant) -> None:
 
     async def handle_remove_bridge(call: ServiceCall) -> None:
         runtime = with_runtime(call)
-        bridge = call.data["bridge"]
-        if call.data.get("delete_entities"):
-            for record in list(runtime.store.entities_for_bridge(bridge)):
-                await runtime.async_remove_entity(record.unique_id)
-                runtime.store.drop_entity(record.unique_id)
-        runtime.store.remove_bridge(bridge)
+        await runtime.async_remove_bridge(
+            call.data["bridge"],
+            delete_entities=bool(call.data.get("delete_entities")),
+        )
         runtime.store.async_schedule_save()
-        # Entities belonging to a now-unknown bridge are cleaned up by the GC.
 
     async def handle_create_entity(call: ServiceCall) -> ServiceResponse:
         runtime = with_runtime(call)
@@ -245,7 +243,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
                 f"{call.data['domain']!r}."
             )
 
-        scope = call.data.get("scope", SCOPE_PRODUCTION)
+        # Default the entity's scope to the bridge's, so a `scope: debug`
+        # bridge does not have to repeat `scope: debug` on every create.
+        scope = call.data.get("scope") or record_bridge.scope
         record = existing or EntityRecord(
             unique_id=unique_id,
             bridge=bridge,
