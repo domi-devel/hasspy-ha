@@ -28,7 +28,7 @@ async def _call(hass: HomeAssistant, service: str, **data):
 
 
 async def test_register_bridge_creates_device_and_presence_entities(
-    hass: HomeAssistant,
+    hass: HomeAssistant, setup_integration
 ) -> None:
     await hass.services.async_call(
         DOMAIN,
@@ -44,9 +44,11 @@ async def test_register_bridge_creates_device_and_presence_entities(
 
     from homeassistant.helpers import device_registry as dr
 
-    device = dr.async_get(hass).async_get_device({(DOMAIN, "production")})
-    assert device is not None
-    assert device.name == "hasspy prod"
+    entry, _ = setup_integration
+    devices = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
+    assert len(devices) == 1
+    assert devices[0].name == "hasspy prod"
+    assert (DOMAIN, "production") in devices[0].identifiers
 
 
 async def test_heartbeat_makes_unknown_bridge_appear(hass: HomeAssistant) -> None:

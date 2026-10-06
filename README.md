@@ -52,11 +52,22 @@ See [`docs/DEBUG_ENTITIES.md`](docs/DEBUG_ENTITIES.md) for the full concept and
 
 ## Development
 
+The integration test suite runs against a real Home Assistant instance via
+`pytest-homeassistant-custom-component`, which pins an exact HA version and
+requires Python ≥ 3.14 for recent HA releases.
+
 ```bash
-python -m venv .venv && . .venv/bin/activate
-pip install -r requirements_test.txt
-pytest
+uv venv --python 3.14 .venv-ha
+uv pip install --python .venv-ha/bin/python -r requirements_test.txt
+.venv-ha/bin/python -m pytest
 ```
+
+The pure lifecycle tests (`tests/test_debug_lifecycle.py`) need no Home
+Assistant and skip the integration tests when it is absent (`pytest` with the
+system interpreter still gives useful signal).
+
+Verified against HA **2026.9.3** (the deployment generation) and **2025.1.4**
+(oldest supported).
 
 ## License
 

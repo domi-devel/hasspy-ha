@@ -1,4 +1,6 @@
 pytest>=8
 pytest-asyncio>=0.24
-pytest-homeassistant-custom-component>=0.13
+# Pins an exact homeassistant version (2026.9.3) and requires Python >= 3.14.
+# Keep this in step with the HA generation the integration is deployed against.
+pytest-homeassistant-custom-component==0.13.366
 ruff>=0.6

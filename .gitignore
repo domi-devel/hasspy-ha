@@ -2,6 +2,7 @@
 __pycache__/
 .venv/
 .venv-ha/
+.venv-ha-new/
 .pytest_cache/
 .ruff_cache/
 coverage.xml
