@@ -75,8 +75,10 @@ self.call_service(
 )
 ```
 
-The *presence* story (bridge online, per-automation last-event/error) needs a
-small reporter in the hasspy library itself: `automation.py` already funnels
-every trigger callback, so a decorator there can emit `register_bridge` +
-`heartbeat`. That ships through the hasspy image (`build.sh`), not through
-HACS. See `docs/HASSPY_REPORTER.md`.
+The hasspy library now also ships a small reporter (`hasspy/reporter.py`, wired
+into `start_hasspy` / `add_automation` / `Automation`) that announces the process
+as a bridge, heartbeats it, and records per-automation last-event/error counts.
+It also adds `Automation.create_entity()` / `set_entity_state()` convenience
+wrappers. All of it is best-effort and auto-detects whether this integration is
+installed. It ships through the hasspy image (`build.sh`), not through HACS —
+see `docs/HASSPY_REPORTER.md`.

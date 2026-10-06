@@ -1,12 +1,76 @@
-# hasspy-side reporter (reference)
+# hasspy-side reporter
 
-The write path (`create_entity` / `set_entity_state`) needs **no hasspy change** —
-it is a plain `call_service`. The presence story does: only hasspy knows which
-apps it loaded and when each one last ran a callback.
+**Implemented** in the hasspy library: `hasspy/src/hasspy/reporter.py`, wired
+into `hasspy.__main__.start_hasspy`, `hasspy.hassapi.HassApi.add_automation` and
+`hasspy.automation.Automation`. It ships through the hasspy image (`build.sh`),
+not through HACS.
 
-This is a reference for the change that belongs in the
-[hasspy](https://github.com/domi-devel/hasspy) library (it ships through the
-hasspy image via `build.sh`, not through HACS).
+## What it does
+
+* On startup, checks whether the companion integration is installed (via
+  `get_services`, looking for `hasspy.register_bridge`) and, if so, registers
+  this process as a **bridge**, then heartbeats it every 30 s.
+* Wraps each automation's trigger/event callbacks to record a **last-event
+  timestamp** and an **error count**, which the integration surfaces on
+  `sensor.<bridge>_automations` and per-automation.
+* Registers `atexit` → `release_session`, so a clean exit removes this bridge's
+  debug entities immediately.
+
+It is entirely best-effort: a missing integration, a mid-reconnect WebSocket, or
+a socket error never raises into automation code.
+
+## Enabling and configuration
+
+Auto-detected by default. Override with environment variables (so `hasspy.yaml`
+stays host-agnostic — see `.env.example`):
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `HASSPY_REPORTER` | auto | `1`/`0` force the reporter on/off |
+| `HASSPY_BRIDGE` | `production` | bridge id (use `debug` for a debug run) |
+| `HASSPY_SCOPE` | from bridge | `production` or `debug` |
+| `HASSPY_DEBUG_TTL` | `60` | lease seconds for debug entities |
+| `HASSPY_DEBUG_GRACE` | `21600` | retention after stale, seconds (6 h) |
+| `HASSPY_HEARTBEAT` | `30` | heartbeat interval, seconds |
+
+A debug run is just `HASSPY_BRIDGE=debug` (scope is derived as `debug`).
+
+## Publishing entities from an app (implemented helper)
+
+`Automation` now exposes two thin wrappers, so apps do not hand-roll service data:
+
+```python
+class Roller(Automation):
+    def on_sunset_change(self, *args, **kwargs):
+        entity_id = self.create_entity(
+            "down",
+            device_class="timestamp",
+            name="Roller down",
+            state=next_sunset.isoformat(),
+        )
+        ...
+        self.set_entity_state("down", next_sunset.isoformat())
+```
+
+Both require the reporter (i.e. the integration). Without it they log once and
+return `None`; apps can keep their existing REST `set_state` path as a fallback.
+
+## Known limitation
+
+`create_entity` uses `call_service(..., return_response=True)` to return the
+`entity_id`. hasspy's `send_message(return_result=True)` busy-waits on the
+calling thread, and app callbacks run on the event loop, so this briefly blocks
+the loop for one round-trip (a few ms). Acceptable at current volumes; a future
+improvement is an async result path.
+
+## Original design reference
+
+The rest of this file is the design that was implemented, kept for context.
+
+### Bridge presence + per-automation telemetry
+
+Only hasspy knows which apps it loaded and when each one last ran a callback.
+
 
 ## 1. `hasspy/reporter.py`
 
