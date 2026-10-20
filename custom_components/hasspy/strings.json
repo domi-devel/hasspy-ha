@@ -52,7 +52,7 @@
     },
     "log": {
       "name": "Log",
-      "description": "Log a line from a hasspy automation. Stored on sensor.<bridge>_last_log, mirrored to the HA log, and written to the logbook.",
+      "description": "Log a line from a hasspy automation. Stored on the bridge's last_log sensor, mirrored to the HA log, and written to the logbook.",
       "fields": {
         "bridge": { "name": "Bridge" },
         "message": { "name": "Message" },
