@@ -13,7 +13,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN, SAVE_DELAY_SECONDS, STORAGE_VERSION
+from .const import SAVE_DELAY_SECONDS, STORAGE_KEY, STORAGE_VERSION
 from .lifecycle import BridgeRecord, EntityRecord, build_unique_id  # noqa: F401
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,8 +31,16 @@ class HasspyStore:
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
+        # `atomic_writes=True` is deliberate. HA's default store write is
+        # rename-atomic but does NOT fsync the data before renaming, so a hard
+        # shutdown (power loss / crash) can commit the directory entry while
+        # losing the file contents -- leaving a zero-length store. HA then
+        # quarantines it as `.corrupt.<utc>` and raises a *critical* repair
+        # issue, and every control falls back to its declared default.
+        # That happened here on 2026-10-20. This store is written at most every
+        # SAVE_DELAY_SECONDS and runs in an executor, so the fsync is cheap.
         self._store: Store[dict[str, Any]] = Store(
-            hass, STORAGE_VERSION, f"{DOMAIN}.dynamic"
+            hass, STORAGE_VERSION, STORAGE_KEY, atomic_writes=True
         )
         self.bridges: dict[str, BridgeRecord] = {}
         self.entities: dict[str, EntityRecord] = {}

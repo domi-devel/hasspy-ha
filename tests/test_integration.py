@@ -501,3 +501,18 @@ async def test_entities_survive_reload(hass: HomeAssistant) -> None:
     assert state is not None
     assert state.state == "7"
     assert "Keep me" in state.attributes["friendly_name"]
+
+
+async def test_store_write_is_durable(hass: HomeAssistant, setup_integration) -> None:
+    """The store must fsync before rename.
+
+    HA's default store write renames a temp file into place without fsyncing
+    it, so a power loss can leave a zero-length JSON file. HA then quarantines
+    it as `.corrupt.<utc>` and raises a *critical* repair issue, and all
+    controls revert to their declared defaults. This happened on 2026-10-20,
+    so the store is created with `atomic_writes=True`; keep it that way.
+    """
+    from custom_components.hasspy.store import HasspyStore
+
+    store = HasspyStore(hass)
+    assert store._store._atomic_writes is True
