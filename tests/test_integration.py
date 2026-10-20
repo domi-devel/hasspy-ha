@@ -252,7 +252,9 @@ async def test_descriptor_change_is_applied_when_supplied(hass: HomeAssistant) -
         state=1,
     )
     await hass.async_block_till_done()
-    assert hass.states.get(created["entity_id"]).attributes["unit_of_measurement"] == "W"
+    assert (
+        hass.states.get(created["entity_id"]).attributes["unit_of_measurement"] == "W"
+    )
 
     await _call(
         hass,
@@ -265,7 +267,9 @@ async def test_descriptor_change_is_applied_when_supplied(hass: HomeAssistant) -
         state=2,
     )
     await hass.async_block_till_done()
-    assert hass.states.get(created["entity_id"]).attributes["unit_of_measurement"] == "kW"
+    assert (
+        hass.states.get(created["entity_id"]).attributes["unit_of_measurement"] == "kW"
+    )
 
 
 async def test_delete_entity_removes_it(hass: HomeAssistant) -> None:
@@ -297,7 +301,11 @@ async def test_list_entities_filters_by_scope(hass: HomeAssistant) -> None:
         scope="production",
     )
     await _call(
-        hass, "create_entity", bridge="debug", key="dbg_one", domain="sensor",
+        hass,
+        "create_entity",
+        bridge="debug",
+        key="dbg_one",
+        domain="sensor",
         scope="debug",
     )
     await hass.async_block_till_done()
@@ -331,12 +339,22 @@ async def test_release_session_removes_only_debug_entities(
         DOMAIN, "register_bridge", {"bridge": "debug", "scope": "debug"}, blocking=True
     )
     prod = await _call(
-        hass, "create_entity", bridge="debug", key="keep", domain="sensor",
-        scope="production", state=1,
+        hass,
+        "create_entity",
+        bridge="debug",
+        key="keep",
+        domain="sensor",
+        scope="production",
+        state=1,
     )
     dbg = await _call(
-        hass, "create_entity", bridge="debug", key="drop", domain="sensor",
-        scope="debug", state=1,
+        hass,
+        "create_entity",
+        bridge="debug",
+        key="drop",
+        domain="sensor",
+        scope="debug",
+        state=1,
     )
     await hass.async_block_till_done()
 
@@ -353,7 +371,12 @@ async def test_sweep_dry_run_reports_verdicts(hass: HomeAssistant) -> None:
         DOMAIN, "register_bridge", {"bridge": "debug", "scope": "debug"}, blocking=True
     )
     await _call(
-        hass, "create_entity", bridge="debug", key="k", domain="sensor", scope="debug",
+        hass,
+        "create_entity",
+        bridge="debug",
+        key="k",
+        domain="sensor",
+        scope="debug",
         state=1,
     )
     await hass.async_block_till_done()
@@ -372,7 +395,12 @@ async def test_debug_entity_goes_unavailable_when_stale(
         DOMAIN, "register_bridge", {"bridge": "debug", "scope": "debug"}, blocking=True
     )
     created = await _call(
-        hass, "create_entity", bridge="debug", key="k", domain="sensor", scope="debug",
+        hass,
+        "create_entity",
+        bridge="debug",
+        key="k",
+        domain="sensor",
+        scope="debug",
         state=42,
     )
     await hass.async_block_till_done()
@@ -398,14 +426,17 @@ async def test_pin_exempts_debug_entity_from_collection(
         DOMAIN, "register_bridge", {"bridge": "debug", "scope": "debug"}, blocking=True
     )
     created = await _call(
-        hass, "create_entity", bridge="debug", key="k", domain="sensor", scope="debug",
+        hass,
+        "create_entity",
+        bridge="debug",
+        key="k",
+        domain="sensor",
+        scope="debug",
         state=1,
     )
     await hass.async_block_till_done()
 
-    await hass.services.async_call(
-        DOMAIN, "pin", {"bridge": "debug"}, blocking=True
-    )
+    await hass.services.async_call(DOMAIN, "pin", {"bridge": "debug"}, blocking=True)
     await hass.async_block_till_done()
     assert hass.states.get(created["entity_id"]).state == "1"
 
@@ -489,8 +520,13 @@ async def test_entities_survive_reload(hass: HomeAssistant) -> None:
         D, "register_bridge", {"bridge": "production"}, blocking=True
     )
     created = await _call(
-        hass, "create_entity", bridge="production", key="k", domain="sensor",
-        name="Keep me", state=7,
+        hass,
+        "create_entity",
+        bridge="production",
+        key="k",
+        domain="sensor",
+        name="Keep me",
+        state=7,
     )
     await hass.async_block_till_done()
 

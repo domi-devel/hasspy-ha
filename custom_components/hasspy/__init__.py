@@ -43,6 +43,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up hasspy from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
+    # Re-register the services. They are created in ``async_setup`` (Home
+    # Assistant's rule: services must exist even with no loaded config entry),
+    # but a reload only unloads and sets up the *entry* -- it never re-runs
+    # ``async_setup``. Unloading removes the services again, so without this
+    # call a reload left hasspy with no services at all and every publish failed
+    # with "Service hasspy.create_entity not found".
+    async_setup_services(hass)
+
     store = HasspyStore(hass)
     await store.async_load()
 
