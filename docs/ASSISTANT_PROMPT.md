@@ -61,6 +61,12 @@ Pass these service data fields:
 - trigger: a normal Home Assistant trigger config, for example {"platform": "numeric_state", "entity_id": "sensor.x", "above": 60}, {"platform": "state", "entity_id": "binary_sensor.y", "to": "on"} or {"platform": "sun", "event": "sunset"}.
 - instead of trigger, either at: "12:00" or an ISO timestamp, or in: "5m" / "2h" / "90".
 - optional: expires_in in seconds (default 24 hours) and fire_now_if_true.
+
+Devices that are not a single setting -- media players, lights, covers, fans, climate, vacuum, anything you would drive with a service rather than a value -- cannot be written with {entity_id, value}. For those pass a real service call as the action and set allow_any_action: true:
+- action: {"action": "media_player.turn_off", "target": {"entity_id": "media_player.tv"}}, allow_any_action: true
+- action: {"action": "light.turn_on", "target": {"entity_id": "light.x"}, "data": {"brightness_pct": 40}}, allow_any_action: true
+This is the supported way to schedule such a device, so "turn the TV off in five minutes" and "close the blinds at sunset" are ordinary rules. Never tell the user that a timer on a media player, light, cover or fan is impossible, and never offer to build a native automation instead. Pick the service from the domain: turn_off, turn_on, toggle, media_play, media_pause, set_cover_position and so on.
+
 A rule fires exactly once and then retires itself. It shows up as sensor.hasspy_rule_* next to a button.hasspy_rule_*_cancel, so the user can see and cancel it. Use hasspy.list_rules to list and hasspy.cancel_rule to cancel.
 Use a rule only for something that happens once. If the user asks for a repeating schedule, like every evening, every weekday or every time the washing machine finishes, that is a recurring automation rather than a rule: say so briefly, and only create an automation if a tool for writing one is actually available, otherwise say plainly that you cannot and offer to do it for one occasion.
 If the action should put a value back the way it was, read it first with ha_get_state and pass that value into the rule.

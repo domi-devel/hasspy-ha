@@ -147,6 +147,26 @@ def test_control_write_rejects_non_control_domain(rules) -> None:
         rules.check_action({"entity_id": "sensor.soc", "value": 1}, states)
 
 
+def test_non_control_rejection_points_at_the_service_call_escape_hatch(
+    rules,
+) -> None:
+    """The rejection must name `allow_any_action`, not just the domain list.
+
+    This message is read by the voice assistant and repeated to the user. When
+    it stopped at "writable domains are number, select, switch, datetime", the
+    agent concluded that "turn the TV off in five minutes" was impossible and
+    offered a native automation instead -- although a service-call action with
+    `allow_any_action` handles it. Keep the hint in the message.
+    """
+    states = {"media_player.tv": {"state": "playing", "attributes": {}}}
+    with pytest.raises(rules.RuleError) as err:
+        rules.check_action({"entity_id": "media_player.tv", "value": False}, states)
+    message = str(err.value)
+    assert "allow_any_action" in message
+    assert "media_player.<service>" in message
+    assert "media_player.tv" in message
+
+
 def test_switch_action_needs_a_boolean(rules) -> None:
     states = {"switch.x": {"state": "off", "attributes": {}}}
     with pytest.raises(rules.RuleError, match="boolean"):

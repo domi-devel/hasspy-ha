@@ -389,9 +389,18 @@ def check_action(
 
     domain = entity_id.split(".", 1)[0]
     if domain not in CONTROL_DOMAINS:
+        # A media player, light, cover or climate entity is not a *control*:
+        # there is no single value to write, it takes a service call. The
+        # escape hatch is `allow_any_action`, so point at it instead of only
+        # listing the writable domains -- this message is read by the voice
+        # assistant and echoed to the user, and without the hint the agent
+        # concludes the request is impossible.
         raise RuleError(
             f"{entity_id} is not a control; writable domains are "
-            f"{', '.join(CONTROL_DOMAINS)}"
+            f"{', '.join(CONTROL_DOMAINS)}. To run a service on it instead, "
+            f"pass action={{'action': '{domain}.<service>', 'target': "
+            f"{{'entity_id': '{entity_id}'}}}} together with "
+            f"allow_any_action: true"
         )
 
     state = states.get(entity_id)

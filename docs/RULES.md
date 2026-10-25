@@ -84,10 +84,24 @@ it looks like it is working.
 * `select` values must be one of the entity's `options`;
 * `number` values must be numeric and inside `min`..`max`;
 * `switch` values must be booleans; `datetime` values must be ISO strings;
-* anything else needs `allow_any_action: true`.
+* a media player, light, cover, fan or climate entity is **not** a control —
+  there is no single value to write — so it needs a service-call action with
+  `allow_any_action: true`:
+
+  ```yaml
+  action:
+    action: media_player.turn_off
+    target:
+      entity_id: media_player.65oled759_12
+  allow_any_action: true
+  ```
+
+  The rejection message for a non-control domain names this escape hatch
+  explicitly, because it is read aloud to the user by the voice assistant.
 
 A missing target entity is a **warning**, not a rejection: the entity may be
-created later by a hasspy app that is still starting.
+created later by a hasspy app that is still starting. A service-call action is
+passed to HA untouched, so an unknown *entity* there is a silent no-op.
 
 ## The gotcha that shapes the API
 
