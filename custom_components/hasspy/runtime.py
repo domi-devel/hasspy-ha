@@ -319,10 +319,21 @@ class HasspyRuntime:
                 entity.async_write_ha_state()
 
     async def async_upsert_rule(self, record: RuleRecord) -> None:
-        """Ensure both entities of a rule exist (first create only)."""
+        """Ensure both entities of a rule exist (first create only).
+
+        Deliberately does NOT call `async_block_till_done()`. That helper waits
+        for every pending task to finish, which includes the task currently
+        awaiting this call - so when a rule is created from inside a Home
+        Assistant task (the conversation agent calling `hasspy.add_rule` through
+        ha_call_service is exactly that) the service deadlocked until the caller
+        timed out, and the assistant reported "no response".
+
+        The entity ids are read back from the live entities by the caller
+        (`rule_payload`), and `async_add_entities` assigns them synchronously in
+        the common case, so waiting is unnecessary.
+        """
         for domain in ("sensor", "button"):
             self._add_rule_entity(domain, record)
-        await self.hass.async_block_till_done()
 
     async def async_remove_rule(self, rule_id: str) -> None:
         for domain in ("sensor", "button"):

@@ -8,6 +8,8 @@ changing a state.
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 pytest.importorskip("homeassistant")
@@ -574,3 +576,39 @@ async def test_failing_action_ends_in_error_and_does_not_rerun(
     hass.states.async_set(SOC, "80", {"unit_of_measurement": "%"})
     await hass.async_block_till_done()
     assert hass.states.get(result["entity_id"]).state == "error"
+
+
+async def test_add_rule_does_not_deadlock_inside_a_parent_task(
+    hass: HomeAssistant,
+) -> None:
+    """A rule created from a nested HA task must not hang.
+
+    `async_upsert_rule` used to call `hass.async_block_till_done()`, which waits
+    for every pending task except the current one. That is safe only when nobody
+    is waiting for us. The conversation agent breaks that: its task awaits a
+    tool task, which awaits this service, so blocking on the pending parent
+    deadlocked until the caller's timeout and the assistant answered "no
+    response" instead of confirming the rule.
+    """
+    await _setup_controls(hass)
+    seen: dict[str, Any] = {}
+
+    async def call_service() -> None:
+        seen["result"] = await _call(
+            hass,
+            "add_rule",
+            name="from a nested task",
+            trigger={"platform": "numeric_state", "entity_id": SOC, "above": 60},
+            action={"entity_id": OVERRIDE, "value": "Kein Override"},
+        )
+
+    async def parent() -> None:
+        # The parent waits for the child, exactly like the agent task waits for
+        # the tool task that calls the service.
+        await hass.async_create_task(call_service())
+
+    import asyncio
+
+    await asyncio.wait_for(hass.async_create_task(parent()), timeout=10)
+    assert seen["result"]["state"] == "armed"
+    assert seen["result"]["entity_id"].startswith("sensor.hasspy_rule_")
