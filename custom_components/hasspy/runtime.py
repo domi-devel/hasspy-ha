@@ -16,8 +16,11 @@ from .bridge import AutomationsSensor, BridgeOnlineEntity, LastLogSensor
 from .const import DOMAIN, MANIFEST_VERSION
 from .debug import DebugCollector
 from .entity import build_entity, device_info_for
-from .store import EntityRecord, HasspyStore
 from .lifecycle import default_object_id
+from .rule_engine import RuleEngine
+from .rule_entity import build_rule_entity, rules_device_info
+from .rules import RuleRecord, describe_action, describe_trigger
+from .store import EntityRecord, HasspyStore
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -35,8 +38,12 @@ class HasspyRuntime:
         self.entry = entry
         self.store = store
         self.collector = DebugCollector(hass, self)
+        self.rule_engine = RuleEngine(hass, self)
         self._platform_add: dict[str, AddEntitiesCallback] = {}
         self._entities: dict[str, Any] = {}
+        # Rule entities are keyed `rule|<rule_id>|state` / `...|cancel`.
+        self._rule_entities: dict[str, Any] = {}
+        self._rules_device_ready = False
 
     @callback
     def async_start(self) -> None:
@@ -44,10 +51,12 @@ class HasspyRuntime:
         self.collector.start()
         for bridge in list(self.store.bridges):
             self.async_sync_bridge(bridge)
+        self.rule_engine.async_start()
 
     @callback
     def async_stop(self) -> None:
         self.collector.stop()
+        self.rule_engine.async_stop()
 
     # -- platform plumbing ---------------------------------------------------
 
@@ -249,3 +258,114 @@ class HasspyRuntime:
                 "value": record.state,
             },
         )
+
+    # -- one-shot rules ------------------------------------------------------
+
+    @callback
+    def async_ensure_rules_device(self) -> None:
+        """Create the single device every rule entity hangs under."""
+        if self._rules_device_ready:
+            return
+        info = rules_device_info()
+        dr.async_get(self.hass).async_get_or_create(
+            config_entry_id=self.entry.entry_id,
+            identifiers=info["identifiers"],
+            name=info.get("name"),
+            manufacturer=info.get("manufacturer"),
+            model=info.get("model"),
+            entry_type=DeviceEntryType.SERVICE,
+            configuration_url=info.get("configuration_url"),
+            sw_version=MANIFEST_VERSION,
+        )
+        self._rules_device_ready = True
+
+    @callback
+    def async_sync_rules_all(self) -> None:
+        """Re-render every rule entity (after a bulk change or a restart)."""
+        for rule_id in self.store.rules:
+            self.async_sync_rule(rule_id)
+
+    @callback
+    def async_spawn_rules(self, domain: str) -> None:
+        """Create the stored rules' entities for one platform."""
+        for record in list(self.store.rules.values()):
+            self._add_rule_entity(domain, record)
+
+    @callback
+    def _add_rule_entity(self, domain: str, record: RuleRecord) -> None:
+        key = self._rule_key(domain, record.rule_id)
+        if key in self._rule_entities:
+            return
+        add = self._platform_add.get(domain)
+        if add is None:
+            return
+        entity = build_rule_entity(self, record, domain)
+        if entity is None:
+            return
+        self.async_ensure_rules_device()
+        self._rule_entities[key] = entity
+        add([entity])
+
+    @staticmethod
+    def _rule_key(domain: str, rule_id: str) -> str:
+        return f"rule|{rule_id}|{'state' if domain == 'sensor' else domain}"
+
+    @callback
+    def async_sync_rule(self, rule_id: str) -> None:
+        """Re-render one rule's entities after a state change."""
+        for domain in ("sensor", "button"):
+            entity = self._rule_entities.get(self._rule_key(domain, rule_id))
+            if entity is not None:
+                entity.async_write_ha_state()
+
+    async def async_upsert_rule(self, record: RuleRecord) -> None:
+        """Ensure both entities of a rule exist (first create only)."""
+        for domain in ("sensor", "button"):
+            self._add_rule_entity(domain, record)
+        await self.hass.async_block_till_done()
+
+    async def async_remove_rule(self, rule_id: str) -> None:
+        for domain in ("sensor", "button"):
+            key = self._rule_key(domain, rule_id)
+            entity = self._rule_entities.pop(key, None)
+            if entity is None:
+                continue
+            entity_id = getattr(entity, "entity_id", None)
+            await entity.async_remove()
+            if entity_id:
+                er.async_get(self.hass).async_remove(entity_id)
+
+    @callback
+    def rule_payload(self, record: RuleRecord) -> dict[str, Any]:
+        """The service-response shape for one rule.
+
+        The entity ids are read back from the live entities (falling back to the
+        naming scheme), because a user rename must not leave callers pointing at
+        an entity that no longer exists.
+        """
+        sensor = self._rule_entities.get(self._rule_key("sensor", record.rule_id))
+        button = self._rule_entities.get(self._rule_key("button", record.rule_id))
+        return {
+            "rule_id": record.rule_id,
+            "name": record.name,
+            "state": record.state,
+            "armed": record.is_active,
+            "kind": record.kind,
+            "trigger": record.trigger,
+            "fire_at": record.fire_at,
+            "action": record.action,
+            "trigger_description": describe_trigger(record),
+            "action_description": describe_action(record),
+            "created_at": record.created_at,
+            "fired_at": record.fired_at,
+            "finished_at": record.finished_at,
+            "expires_at": record.expires_at,
+            "action_runs": record.action_runs,
+            "warnings": list(record.warnings),
+            "last_error": record.last_error,
+            "cancel_reason": record.cancel_reason,
+            "entity_id": getattr(sensor, "entity_id", None)
+            or f"sensor.hasspy_rule_{record.rule_id}",
+            "cancel_entity_id": getattr(button, "entity_id", None)
+            or f"button.hasspy_rule_{record.rule_id}_cancel",
+        }

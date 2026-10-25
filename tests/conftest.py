@@ -49,6 +49,7 @@ def pure():
     return types.SimpleNamespace(
         const=_load_pure("const"),
         lifecycle=_load_pure("lifecycle"),
+        rules=_load_pure("rules"),
     )
 
 

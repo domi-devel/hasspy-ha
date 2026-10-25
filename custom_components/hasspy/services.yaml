@@ -259,3 +259,66 @@ unpin:
     automation:
       selector:
         text:
+
+add_rule:
+  fields:
+    name:
+      required: true
+      selector:
+        text:
+    trigger:
+      selector:
+        object:
+    action:
+      required: true
+      selector:
+        object:
+    at:
+      selector:
+        text:
+    in:
+      selector:
+        text:
+    bridge:
+      selector:
+        text:
+    key:
+      selector:
+        text:
+    allow_any_action:
+      selector:
+        boolean:
+    fire_now_if_true:
+      selector:
+        boolean:
+    expires_in:
+      selector:
+        number:
+          min: 0
+          max: 2592000
+          unit_of_measurement: s
+
+cancel_rule:
+  fields:
+    rule_id:
+      required: true
+      selector:
+        text:
+    reason:
+      selector:
+        text:
+    forget:
+      selector:
+        boolean:
+
+list_rules:
+  fields:
+    bridge:
+      selector:
+        text:
+    active_only:
+      selector:
+        boolean:
+    include_finished:
+      selector:
+        boolean:

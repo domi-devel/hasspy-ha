@@ -15,6 +15,7 @@ from homeassistant.helpers.storage import Store
 
 from .const import SAVE_DELAY_SECONDS, STORAGE_KEY, STORAGE_VERSION
 from .lifecycle import BridgeRecord, EntityRecord, build_unique_id  # noqa: F401
+from .rules import RuleRecord
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ __all__ = [
     "BridgeRecord",
     "EntityRecord",
     "HasspyStore",
+    "RuleRecord",
     "build_unique_id",
 ]
 
@@ -44,6 +46,9 @@ class HasspyStore:
         )
         self.bridges: dict[str, BridgeRecord] = {}
         self.entities: dict[str, EntityRecord] = {}
+        # One-shot rules. Persisted in the same store, so an armed rule survives
+        # a restart and is re-armed by the engine (`RuleEngine.async_start`).
+        self.rules: dict[str, RuleRecord] = {}
         self._cancel_save = None
 
     # -- lifecycle -----------------------------------------------------------
@@ -60,16 +65,23 @@ class HasspyStore:
             for e in raw.get("entities", [])
             if "unique_id" in e
         }
+        self.rules = {
+            r["rule_id"]: RuleRecord.from_dict(r)
+            for r in raw.get("rules", [])
+            if "rule_id" in r
+        }
         _LOGGER.debug(
-            "hasspy store loaded: %d bridge(s), %d entity(ies)",
+            "hasspy store loaded: %d bridge(s), %d entity(ies), %d rule(s)",
             len(self.bridges),
             len(self.entities),
+            len(self.rules),
         )
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "bridges": [b.to_dict() for b in self.bridges.values()],
             "entities": [e.to_dict() for e in self.entities.values()],
+            "rules": [r.to_dict() for r in self.rules.values()],
         }
 
     @callback
@@ -141,3 +153,17 @@ class HasspyStore:
 
     def entities_for_bridge(self, bridge: str) -> list[EntityRecord]:
         return [e for e in self.entities.values() if e.bridge == bridge]
+
+    # -- rules ---------------------------------------------------------------
+
+    def get_rule(self, rule_id: str) -> RuleRecord | None:
+        return self.rules.get(rule_id)
+
+    def put_rule(self, record: RuleRecord) -> None:
+        self.rules[record.rule_id] = record
+
+    def drop_rule(self, rule_id: str) -> RuleRecord | None:
+        return self.rules.pop(rule_id, None)
+
+    def active_rules(self) -> list[RuleRecord]:
+        return [r for r in self.rules.values() if r.is_active]

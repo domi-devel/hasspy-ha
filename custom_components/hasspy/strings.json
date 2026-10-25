@@ -124,6 +124,40 @@
         "scope": { "name": "Scope" }
       }
     },
+    "add_rule": {
+      "name": "Add one-shot rule",
+      "description": "Arm a trigger plus the action to run once when it fires. Returns the rule id and its entities.",
+      "fields": {
+        "name": { "name": "Name", "description": "Human-readable name, also used as the rule sensor's name." },
+        "trigger": { "name": "Trigger", "description": "A Home Assistant trigger config, e.g. platform numeric_state with entity_id and above." },
+        "action": { "name": "Action", "description": "Either an entity_id plus value to write a control, or a service call with allow_any_action." },
+        "at": { "name": "At", "description": "Absolute time: ISO-8601, or HH:MM for the next occurrence." },
+        "in": { "name": "In", "description": "Relative delay: seconds, or a string like 5m or 2h." },
+        "bridge": { "name": "Bridge", "description": "Optional owning bridge, used for grouping and logging." },
+        "key": { "name": "Key", "description": "Optional stable key for the owning bridge." },
+        "allow_any_action": { "name": "Allow any action", "description": "Permit an arbitrary service call as the action instead of a control write." },
+        "fire_now_if_true": { "name": "Fire now if already true", "description": "Run the action immediately when the trigger condition already holds." },
+        "expires_in": { "name": "Expires in", "description": "Disarm the rule if it has not fired within this many seconds. Default 24 hours." }
+      }
+    },
+    "cancel_rule": {
+      "name": "Cancel one-shot rule",
+      "description": "Disarm a rule and mark it cancelled, or remove it entirely with forget.",
+      "fields": {
+        "rule_id": { "name": "Rule id" },
+        "reason": { "name": "Reason", "description": "Recorded in the rule's last_error field." },
+        "forget": { "name": "Forget", "description": "Delete the rule and its entities instead of just cancelling it." }
+      }
+    },
+    "list_rules": {
+      "name": "List one-shot rules",
+      "description": "Return armed and finished rules with their trigger and action descriptions.",
+      "fields": {
+        "bridge": { "name": "Bridge" },
+        "active_only": { "name": "Active only" },
+        "include_finished": { "name": "Include finished" }
+      }
+    },
     "release_session": {
       "name": "Release debug session",
       "description": "Delete every debug entity of a bridge (or one automation) immediately. The graceful-shutdown path.",

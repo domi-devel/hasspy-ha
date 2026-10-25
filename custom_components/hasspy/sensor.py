@@ -31,6 +31,8 @@ async def async_setup_entry(
     runtime = entry.runtime_data
     runtime.register_platform("sensor", async_add_entities)
     await runtime.async_spawn_stored("sensor")
+    # One-shot rules also render as sensors (state + trigger/action attrs).
+    runtime.async_spawn_rules("sensor")
 
 
 class HasspySensor(HasspyDynamicEntity, SensorEntity):

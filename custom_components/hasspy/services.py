@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import timedelta
 from typing import Any
 
 import voluptuous as vol
@@ -23,20 +24,25 @@ from homeassistant.core import (
     callback,
 )
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.util import dt as dt_util
 
 from .const import (
     DEFAULT_GRACE_SECONDS,
     DEFAULT_LEASE_SECONDS,
+    DEFAULT_RULE_EXPIRY_SECONDS,
     DOMAIN,
     DYNAMIC_DOMAINS,
     SCOPE_DEBUG,
     SCOPE_PRODUCTION,
     SCOPES,
+    SERVICE_ADD_RULE,
+    SERVICE_CANCEL_RULE,
     SERVICE_CREATE_ENTITY,
     SERVICE_DELETE_ENTITY,
     SERVICE_HEARTBEAT,
     SERVICE_LIST_BRIDGES,
     SERVICE_LIST_ENTITIES,
+    SERVICE_LIST_RULES,
     SERVICE_LOG,
     SERVICE_PIN,
     SERVICE_REGISTER_BRIDGE,
@@ -48,6 +54,7 @@ from .const import (
 )
 from .runtime import HasspyRuntime
 from .lifecycle import note_bridge_seen
+from .rules import RuleError, parse_relative_offset
 from .store import EntityRecord, build_unique_id
 
 _LOGGER = logging.getLogger(__name__)
@@ -190,6 +197,45 @@ LOG_SCHEMA = vol.Schema(
             ("debug", "info", "warning", "error")
         ),
         vol.Optional("logbook", default=True): bool,
+    }
+)
+
+# --- one-shot rules --------------------------------------------------------
+#
+# `trigger` is a raw HA trigger config (any platform); `at`/`in` are the
+# point-in-time shortcuts for "at 12:00" / "in 5 minutes". Exactly one of the
+# two trigger flavours is required -- enforced in the handler so the error
+# message can say which one is missing.
+ADD_RULE_SCHEMA = vol.Schema(
+    {
+        vol.Required("name"): vol.All(str, vol.Length(min=1, max=120)),
+        vol.Required("action"): dict,
+        vol.Optional("trigger"): dict,
+        vol.Optional("at"): str,
+        vol.Optional("in"): vol.Any(str, vol.Coerce(float)),
+        vol.Optional("bridge"): str,
+        vol.Optional("key"): str,
+        vol.Optional("allow_any_action", default=False): bool,
+        vol.Optional("fire_now_if_true", default=False): bool,
+        vol.Optional("expires_in", default=DEFAULT_RULE_EXPIRY_SECONDS): vol.Any(
+            None, vol.Coerce(float)
+        ),
+    }
+)
+
+CANCEL_RULE_SCHEMA = vol.Schema(
+    {
+        vol.Required("rule_id"): vol.All(str, vol.Length(min=1, max=64)),
+        vol.Optional("reason"): str,
+        vol.Optional("forget", default=False): bool,
+    }
+)
+
+LIST_RULES_SCHEMA = vol.Schema(
+    {
+        vol.Optional("bridge"): str,
+        vol.Optional("active_only", default=False): bool,
+        vol.Optional("include_finished", default=True): bool,
     }
 )
 
@@ -527,6 +573,68 @@ def async_setup_services(hass: HomeAssistant) -> None:
     async def handle_unpin(call: ServiceCall) -> None:
         _async_set_pin(hass, call, False)
 
+    # --- one-shot rules ---------------------------------------------------
+
+    async def handle_add_rule(call: ServiceCall) -> ServiceResponse:
+        """Arm a one-shot rule: a trigger plus the action to run once.
+
+        Rejections come back as `ServiceValidationError` with an actionable
+        message (the common one: the trigger condition is already true, so a
+        Home Assistant trigger could never fire).
+        """
+        runtime = with_runtime(call)
+        fire_at = _resolve_fire_at(call)
+        trigger = call.data.get("trigger")
+        try:
+            record = await runtime.rule_engine.async_add(
+                name=call.data["name"],
+                action=call.data["action"],
+                trigger=trigger,
+                fire_at=fire_at,
+                bridge=call.data.get("bridge"),
+                key=call.data.get("key"),
+                allow_any_action=bool(call.data.get("allow_any_action")),
+                fire_now_if_true=bool(call.data.get("fire_now_if_true")),
+                expires_in=call.data.get("expires_in"),
+            )
+        except RuleError as err:
+            raise ServiceValidationError(str(err)) from err
+        return runtime.rule_payload(record)
+
+    async def handle_cancel_rule(call: ServiceCall) -> ServiceResponse:
+        runtime = with_runtime(call)
+        rule_id = call.data["rule_id"]
+        record = runtime.store.get_rule(rule_id)
+        if record is None:
+            raise ServiceValidationError(f"Unknown hasspy rule {rule_id!r}.")
+        if call.data.get("forget"):
+            await runtime.rule_engine.async_forget(rule_id)
+            return {"rule_id": rule_id, "forgotten": True}
+        await runtime.rule_engine.async_cancel(
+            rule_id, reason=call.data.get("reason") or "cancelled"
+        )
+        runtime.store.async_schedule_save()
+        payload = runtime.rule_payload(record)
+        payload["forgotten"] = False
+        return payload
+
+    async def handle_list_rules(call: ServiceCall) -> ServiceResponse:
+        runtime = with_runtime(call)
+        bridge = call.data.get("bridge")
+        active_only = bool(call.data.get("active_only"))
+        include_finished = bool(call.data.get("include_finished", True))
+        out = []
+        for record in runtime.store.rules.values():
+            if bridge is not None and record.bridge != bridge:
+                continue
+            if active_only and not record.is_active:
+                continue
+            if not active_only and not include_finished and not record.is_active:
+                continue
+            out.append(runtime.rule_payload(record))
+        out.sort(key=lambda r: r["created_at"], reverse=True)
+        return {"rules": out, "count": len(out)}
+
     hass.services.async_register(
         DOMAIN, SERVICE_REGISTER_BRIDGE, handle_register_bridge, REGISTER_BRIDGE_SCHEMA
     )
@@ -580,6 +688,72 @@ def async_setup_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(DOMAIN, SERVICE_PIN, handle_pin, SESSION_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_UNPIN, handle_unpin, SESSION_SCHEMA)
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_ADD_RULE,
+        handle_add_rule,
+        ADD_RULE_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CANCEL_RULE,
+        handle_cancel_rule,
+        CANCEL_RULE_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_LIST_RULES,
+        handle_list_rules,
+        LIST_RULES_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
+
+
+@callback
+def _resolve_fire_at(call: ServiceCall) -> float | None:
+    """Turn the `at`/`in` shortcuts into an absolute UTC epoch timestamp.
+
+    `in` accepts "300", 300 or "5m"/"2h"; `at` accepts ISO-8601 (with an offset,
+    or naive = local time) or a bare ``HH:MM`` meaning the next occurrence.
+    """
+    offset_spec = call.data.get("in")
+    at_spec = call.data.get("at")
+
+    if offset_spec is not None:
+        seconds = parse_relative_offset(str(offset_spec))
+        if seconds is None:
+            raise ServiceValidationError(
+                f"'in' must be a duration like 300, '5m', '2h' (got {offset_spec!r})"
+            )
+        return (dt_util.utcnow() + timedelta(seconds=seconds)).timestamp()
+
+    if at_spec is not None:
+        text = str(at_spec).strip()
+        parsed = dt_util.parse_datetime(text)
+        if parsed is None:
+            # A bare HH:MM means "the next time the clock reads that".
+            clock = dt_util.parse_time(text)
+            if clock is not None:
+                now_local = dt_util.now()
+                candidate = now_local.replace(
+                    hour=clock.hour,
+                    minute=clock.minute,
+                    second=clock.second,
+                    microsecond=0,
+                )
+                if candidate <= now_local:
+                    candidate += timedelta(days=1)
+                return candidate.timestamp()
+            raise ServiceValidationError(
+                f"'at' must be ISO-8601 or HH:MM (got {at_spec!r})"
+            )
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+        return parsed.timestamp()
+
+    return None
 
 
 @callback

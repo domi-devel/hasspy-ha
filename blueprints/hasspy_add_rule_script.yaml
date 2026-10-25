@@ -1,0 +1,101 @@
+# Script wrapper that makes one-shot rules voice-controllable.
+#
+# Assist only exposes *scripts* (not services) as LLM tools, so this thin shim
+# turns a spoken sentence into a `hasspy.add_rule` call. Create it in the UI
+# (Settings > Automations & scenes > Scripts > ... > Edit in YAML) or paste the
+# `sequence` below into an existing script.
+#
+#   "Set the storage to no override when the battery reaches 60 percent."
+#
+# Then expose the script to Assist:
+#   Settings > Voice assistants > <assistant> > Expose > script.hasspy_add_rule
+#
+# The `number` selector on `threshold` and the `text` selector on `value` give
+# the model enough structure to fill the fields reliably; the rule itself is
+# then validated by hasspy (implausible thresholds are refused with a reason).
+script:
+  hasspy_add_rule:
+    alias: "hasspy: add one-shot rule"
+    description: >-
+      Arm a one-off action that fires once when a condition is met. Use for
+      requests like "when the battery reaches 60 percent, set the storage
+      override to no override".
+    mode: single
+    max_exceeded: silent
+    fields:
+      name:
+        name: Rule name
+        description: Short human description of the rule.
+        required: true
+        selector:
+          text:
+      entity_id:
+        name: Watch entity
+        description: The sensor or entity whose value triggers the rule.
+        required: true
+        selector:
+          entity:
+      threshold:
+        name: Threshold
+        description: >-
+          The value the watch entity must cross (percent, degrees, ...). Leave
+          empty for a pure state-change rule.
+        required: false
+        selector:
+          number:
+            min: -100000
+            max: 100000
+            mode: box
+      direction:
+        name: Direction
+        description: Whether the rule fires when the value rises above or falls below the threshold.
+        required: false
+        default: above
+        selector:
+          select:
+            options:
+              - above
+              - below
+      target_entity_id:
+        name: Action target
+        description: The control to write (a number, select, switch or datetime entity).
+        required: true
+        selector:
+          entity:
+      value:
+        name: New value
+        description: >-
+          What the target should be set to, e.g. an option name for a select,
+          a number for a number, on or off for a switch.
+        required: true
+        selector:
+          text:
+    sequence:
+      - variables:
+          rule_trigger: >-
+            {% if threshold is defined and threshold is not none %}
+              {{ {'platform': 'numeric_state',
+                  'entity_id': entity_id,
+                  ('above' if (direction | default('above')) == 'above' else 'below'): threshold} }}
+            {% else %}
+              {{ {'platform': 'state', 'entity_id': entity_id} }}
+            {% endif %}
+          rule_value: >-
+            {% set domain = target_entity_id.split('.')[0] %}
+            {% if domain == 'switch' %}
+              {{ value | lower in ['on', 'true', 'yes', '1', 'eins', 'an'] }}
+            {% elif domain == 'number' %}
+              {{ value | float(value) }}
+            {% else %}{{ value }}{% endif %}
+      - action: hasspy.add_rule
+        data:
+          name: "{{ name }}"
+          trigger: "{{ rule_trigger }}"
+          action:
+            entity_id: "{{ target_entity_id }}"
+            value: "{{ rule_value }}"
+        response_variable: rule_result
+      - stop: >-
+          Rule armed: it will {{ rule_result.action_description }} when
+          {{ rule_result.trigger_description }}. Rule id {{ rule_result.rule_id }};
+          cancel with {{ rule_result.cancel_entity_id }}.

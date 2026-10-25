@@ -27,6 +27,32 @@ SERVICE_DELETE_ENTITY = "delete_entity"
 SERVICE_LIST_BRIDGES = "list_bridges"
 SERVICE_LIST_ENTITIES = "list_entities"
 
+# --- one-shot rules ---------------------------------------------------------
+SERVICE_ADD_RULE = "add_rule"
+SERVICE_CANCEL_RULE = "cancel_rule"
+SERVICE_LIST_RULES = "list_rules"
+
+# Rule lifecycle states. A rule is armed once, fires once, then is finished;
+# `cancelled`/`expired`/`error` are also terminal.
+RULE_STATE_ARMED = "armed"
+RULE_STATE_FIRED = "fired"
+RULE_STATE_CANCELLED = "cancelled"
+RULE_STATE_EXPIRED = "expired"
+RULE_STATE_ERROR = "error"
+RULE_STATES = (
+    RULE_STATE_ARMED,
+    RULE_STATE_FIRED,
+    RULE_STATE_CANCELLED,
+    RULE_STATE_EXPIRED,
+    RULE_STATE_ERROR,
+)
+# A rule that is never reached must not stay armed forever: a typo would
+# otherwise sit in the store indefinitely. 24 h covers "tonight"/"tomorrow
+# morning" phrasing without leaving surprises days later.
+DEFAULT_RULE_EXPIRY_SECONDS = 24 * 3600.0
+# Finished rules are kept this long so the last outcome stays visible.
+RULE_RETENTION_SECONDS = 24 * 3600.0
+
 # --- debug lifecycle --------------------------------------------------------
 SERVICE_RELEASE_SESSION = "release_session"
 SERVICE_SWEEP = "sweep"
