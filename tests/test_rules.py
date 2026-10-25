@@ -225,6 +225,32 @@ async def test_arbitrary_service_action_needs_opt_in(hass: HomeAssistant) -> Non
         )
 
 
+async def test_service_action_reports_its_opt_in_flag(hass: HomeAssistant) -> None:
+    """The response must echo `allow_any_action`, as the sensor attributes do.
+
+    Without it a caller (the voice assistant) cannot tell whether the rule it
+    just armed took the control path or the raw service-call path, and the two
+    look identical in `list_rules`.
+    """
+    await _setup_controls(hass)
+    result = await _call(
+        hass,
+        "add_rule",
+        name="scheduled media stop",
+        trigger={"platform": "numeric_state", "entity_id": SOC, "above": 60},
+        action={
+            "action": "media_player.turn_off",
+            "target": {"entity_id": "media_player.tv"},
+        },
+        allow_any_action=True,
+    )
+    assert result["allow_any_action"] is True
+    assert result["action"]["action"] == "media_player.turn_off"
+
+    sensor = hass.states.get(result["entity_id"])
+    assert sensor.attributes["allow_any_action"] is True
+
+
 # --- point in time ---------------------------------------------------------
 
 

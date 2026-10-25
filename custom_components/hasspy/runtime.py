@@ -365,6 +365,7 @@ class HasspyRuntime:
             "trigger": record.trigger,
             "fire_at": record.fire_at,
             "action": record.action,
+            "allow_any_action": record.allow_any_action,
             "trigger_description": describe_trigger(record),
             "action_description": describe_action(record),
             "created_at": record.created_at,
